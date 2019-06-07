@@ -19,6 +19,8 @@ use llvm_sys::prelude::*;
 use llvm_sys::target::*;
 use llvm_sys::bit_writer::*;
 use llvm_sys::target_machine::*;
+use llvm_sys::initialization::*;
+use llvm_sys::transforms::pass_manager_builder::*;
 use tiny_keccak::keccak256;
 
 const TRIPLE: &'static [u8] = b"wasm32-unknown-unknown-wasm\0";
@@ -35,6 +37,10 @@ lazy_static::lazy_static! {
         LLVMInitializeWebAssemblyAsmPrinter();
         LLVMInitializeWebAssemblyAsmParser();
         LLVMInitializeWebAssemblyDisassembler();
+
+        let pass_registry = LLVMGetGlobalPassRegistry();
+        LLVMInitializeIPO(pass_registry);
+        LLVMInitializeCore(pass_registry);
     };
 }
 
@@ -111,6 +117,24 @@ impl<'a> Contract<'a> {
                 LLVMDisposeMemoryBuffer(memory_buffer);
                 Ok(res)
             }
+        }
+    }
+
+    pub fn optimise(&self, opt: u32) {
+        unsafe {
+            let builder = LLVMPassManagerBuilderCreate();
+
+            LLVMPassManagerBuilderSetOptLevel(builder, opt);
+
+            let pass_manager = LLVMCreatePassManager();
+            
+            LLVMPassManagerBuilderPopulateModulePassManager(builder, pass_manager);
+
+            LLVMPassManagerBuilderDispose(builder);
+
+            LLVMRunPassManager(pass_manager, self.module);
+
+            LLVMDisposePassManager(pass_manager);
         }
     }
 

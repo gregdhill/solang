@@ -130,6 +130,9 @@ fn main() {
             let abi = contract.generate_abi();
 
             let contract = emit::Contract::new(contract, &filename);
+            
+            // FIXME this should be a -O0/-O1 etc argument
+            contract.optimise(2);
 
             if matches.is_present("LLVM") {
                 contract.dump_llvm();
